@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桌面小工具</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --line:#e5e7eb; --text:#1f2329;
+    --muted:#8a9099; --brand:#4f6ef7; --brand-soft:#eef1fe;
+    --red:#e5484d; --green:#18a058;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    background:var(--bg); color:var(--text); height:100vh;
+    display:flex; flex-direction:column; overflow:hidden; user-select:none;
+  }
+  /* 顶部拖拽区 */
+  header{
+    -webkit-app-region:drag; app-region:drag;
+    height:44px; flex:0 0 44px; display:flex; align-items:center;
+    padding:0 12px; gap:8px; background:var(--card); border-bottom:1px solid var(--line);
+  }
+  header .dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px;}
+  .dot.r{background:#ff5f57;}.dot.y{background:#febc2e;}.dot.g{background:#28c840;}
+  header .title{font-size:13px;color:var(--muted);margin-left:4px;}
+  header .drag-hint{font-size:11px;color:var(--muted);margin-left:auto;}
+  .close-btn{-webkit-app-region:no-drag;app-region:no-drag;border:none;background:none;
+    font-size:16px;color:var(--muted);cursor:pointer;width:28px;height:28px;border-radius:6px;}
+  .close-btn:hover{background:#f0f1f3;color:var(--red);}
+
+  /* 标签栏 */
+  nav{flex:0 0 auto; display:flex; gap:6px; padding:8px 12px 0;}
+  nav .tab{
+    flex:1; text-align:center; padding:7px 0; font-size:13px; cursor:pointer;
+    border-radius:8px; color:var(--muted); transition:.15s; background:transparent;
+  }
+  nav .tab:hover{background:#eceef1;}
+  nav .tab.active{background:var(--brand); color:#fff; font-weight:600;}
+
+  main{flex:1; overflow-y:auto; padding:12px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px;}
+  .card h3{font-size:13px; color:var(--muted); font-weight:600; margin-bottom:10px;}
+  textarea, input, select{
+    width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    font-size:13px; font-family:inherit; color:var(--text); background:#fff; outline:none;
+  }
+  textarea:focus, input:focus, select:focus{border-color:var(--brand);}
+  button{
+    border:none; border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer;
+    background:var(--brand); color:#fff; transition:.15s; font-family:inherit;
+  }
+  button:hover{filter:brightness(1.08);}
+  button.ghost{background:var(--brand-soft); color:var(--brand);}
+  button.danger{background:#fff; color:var(--red); border:1px solid #f3c7c9;}
+  .row{display:flex; gap:8px; align-items:center;}
+
+  /* 便签 */
+  .note-list{display:flex; flex-direction:column; gap:8px;}
+  .note-item{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  .note-item .nt{font-size:13px;white-space:pre-wrap;word-break:break-word;}
+  .note-item .nm{font-size:11px;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between;}
+
+  /* 倒计时 */
+  .cd-display{text-align:center; padding:16px 0;}
+  .cd-time{font-size:40px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:2px;}
+  .cd-label{font-size:13px;color:var(--muted);margin-top:6px;}
+  .cd-time.over{color:var(--red);}
+
+  /* 剪贴板 */
+  .clip-item{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;cursor:pointer;word-break:break-all;}
+  .clip-item:hover{border-color:var(--brand);}
+
+  /* todo */
+  .todo-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;}
+  .todo-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand);cursor:pointer;}
+  .todo-item .tt{flex:1;font-size:13px;word-break:break-word;}
+  .todo-item.done .tt{text-decoration:line-through;color:var(--muted);}
+  .todo-item .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;}
+  .todo-item .del:hover{color:var(--red);}
+
+  /* 速算 */
+  .conv-result{font-size:20px;font-weight:700;margin-top:8px;color:var(--brand);}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;}
+  .empty{color:var(--muted);font-size:12px;text-align:center;padding:16px 0;}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+  <span class="title">桌面小工具</span>
+  <span class="drag-hint">← 按住这里拖动窗口</span>
+  <button class="close-btn" onclick="window.close()" title="关闭">✕</button>
+</header>
+
+<nav>
+  <div class="tab active" data-p="notes" onclick="switchTab('notes')">便签</div>
+  <div class="tab" data-p="countdown" onclick="switchTab('countdown')">倒计时</div>
+  <div class="tab" data-p="clip" onclick="switchTab('clip')">剪贴板</div>
+  <div class="tab" data-p="todo" onclick="switchTab('todo')">待办</div>
+  <div class="tab" data-p="conv" onclick="switchTab('conv')">速算</div>
+</nav>
+
+<main>
+  <!-- 便签 -->
+  <div class="panel active" id="p-notes">
+    <div class="card">
+      <h3>新建便签</h3>
+      <textarea id="note-input" rows="4" placeholder="写点什么..."></textarea>
+      <div class="row" style="margin-top:10px;">
+        <button onclick="addNote()">保存便签</button>
+        <button class="ghost" onclick="clearNotes()">清空全部</button>
+      </div>
+    </div>
+    <div id="note-list" class="note-list"></div>
+  </div>
+
+  <!-- 倒计时 -->
+  <div class="panel" id="p-countdown">
+    <div class="card">
+      <h3>设置倒计时</h3>
+      <div class="row">
+        <input type="number" id="cd-min" value="5" min="0" style="flex:1;"> 分钟
+        <input type="number" id="cd-sec" value="0" min="0" max="59" style="flex:1;"> 秒
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button onclick="startCountdown()">开始</button>
+        <button class="ghost" onclick="pauseCountdown()">暂停/继续</button>
+        <button class="danger" onclick="resetCountdown()">重置</button>
+      </div>
+    </div>
+    <div class="card cd-display">
+      <div class="cd-time" id="cd-display">05:00</div>
+      <div class="cd-label" id="cd-state">就绪</div>
+    </div>
+  </div>
+
+  <!-- 剪贴板 -->
+  <div class="panel" id="p-clip">
+    <div class="card">
+      <h3>剪贴板历史（自动记录复制内容）</h3>
+      <button class="ghost" onclick="copyLast()" style="margin-bottom:10px;">复制上一条</button>
+      <button class="danger" onclick="clearClip()">清空记录</button>
+    </div>
+    <div id="clip-list"></div>
+  </div>
+
+  <!-- 待办 -->
+  <div class="panel" id="p-todo">
+    <div class="card">
+      <h3>添加待办</h3>
+      <div class="row">
+        <input id="todo-input" placeholder="要做什么？" onkeydown="if(event.key==='Enter')addTodo()">
+        <button onclick="addTodo()">添加</button>
+      </div>
+    </div>
+    <div id="todo-list"></div>
+  </div>
+
+  <!-- 速算 -->
+  <div class="panel" id="p-conv">
+    <div class="card">
+      <h3>单位换算</h3>
+      <input id="conv-val" type="number" placeholder="输入数值" oninput="doConv()">
+      <div class="row" style="margin-top:10px;">
+        <select id="conv-type" onchange="doConv()">
+          <option value="cm-in">厘米 → 英寸</option>
+          <option value="in-cm">英寸 → 厘米</option>
+          <option value="kg-lb">千克 → 磅</option>
+          <option value="lb-kg">磅 → 千克</option>
+          <option value="c-f">摄氏 → 华氏</option>
+          <option value="f-c">华氏 → 摄氏</option>
+          <option value="km-mi">公里 → 英里</option>
+          <option value="mi-km">英里 → 公里</option>
+          <option value="cny-usd">人民币 → 美元(≈7.2)</option>
+        </select>
+      </div>
+      <div class="conv-result" id="conv-result">—</div>
+    </div>
+    <div class="card">
+      <h3>速算</h3>
+      <input id="calc-input" placeholder="如 123*45 或 (10+20)/2" onkeydown="if(event.key==='Enter')doCalc()">
+      <button onclick="doCalc()" style="margin-top:10px;">计算</button>
+      <div class="conv-result" id="calc-result">—</div>
+    </div>
+    <div class="hint">提示：速算支持 + - * / ( )，输入后回车即可。</div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

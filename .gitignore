@@ -1,0 +1,17 @@
+# 本地项目数据 / AI 工作区缓存
+.workbuddy/
+
+# 系统与编辑器
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# 临时文件
+*.tmp
+*~

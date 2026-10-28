@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小鲸鱼 · 电子宠物</title>
+<style>
+  :root{
+    --bg:#ffffff; --text:#33415c; --muted:#8a93a6;
+    --blue:#4f7df9; --blue-deep:#3b66d6; --blue-light:#8fb3ff;
+    --belly:#eef4ff; --accent:#ffb74d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; overflow:hidden; background:transparent;}
+  body{
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--text); user-select:none;
+    display:flex; flex-direction:column; align-items:center;
+  }
+
+  /* 顶部拖拽条 */
+  .dragbar{
+    width:100%; height:26px; display:flex; align-items:center; justify-content:center;
+    cursor:grab; -webkit-app-region:drag; app-region:drag;
+    color:var(--muted); font-size:11px; letter-spacing:1px;
+  }
+  .dragbar:active{cursor:grabbing;}
+
+  /* 鲸鱼主体 */
+  .whale-wrap{
+    position:relative; width:240px; height:240px; margin-top:4px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .whale{
+    cursor:pointer; transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+    transform-origin:50% 60%;
+  }
+  .whale:hover{transform:scale(1.04);}
+  .whale.bounce{animation:bounce .5s;}
+  @keyframes bounce{0%{transform:translateY(0)}35%{transform:translateY(-22px)}70%{transform:translateY(4px)}100%{transform:translateY(0)}}
+  .whale.swim{animation:swim 3.2s ease-in-out infinite;}
+  @keyframes swim{
+    0%,100%{transform:translateX(0) rotate(0deg)}
+    25%{transform:translateX(8px) rotate(-2deg)}
+    50%{transform:translateX(0) rotate(0deg)}
+    75%{transform:translateX(-8px) rotate(2deg)}
+  }
+  .whale.sleep{animation:float 3s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  /* 喷水 */
+  .spout{position:absolute; bottom:78%; left:50%; transform:translateX(-50%); pointer-events:none; opacity:0; transition:opacity .3s;}
+  .spout.on{opacity:1;}
+  .drop{display:block; background:var(--blue-light); border-radius:50%; position:absolute; animation:drop 1s ease-in forwards;}
+  @keyframes drop{0%{transform:translateY(0) scale(.4); opacity:1;}100%{transform:translateY(38px) scale(1); opacity:0;}}
+
+  /* 状态气泡 */
+  .bubble{
+    position:absolute; top:-8px; right:-10px; background:#fff; border:2px solid var(--blue-light);
+    border-radius:12px; padding:6px 12px; font-size:13px; font-weight:600;
+    box-shadow:0 4px 12px rgba(79,125,249,.18); white-space:nowrap;
+    transition:.3s; transform:scale(0); transform-origin:bottom left;
+  }
+  .bubble.show{transform:scale(1);}
+
+  /* 状态条 */
+  .stats{width:86%; max-width:230px; display:flex; flex-direction:column; gap:6px; margin-top:2px;}
+  .stat-row{display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted);}
+  .stat-row .lab{width:26px; flex:0 0 26px;}
+  .bar{flex:1; height:8px; background:#eef1f7; border-radius:6px; overflow:hidden;}
+  .bar i{display:block; height:100%; border-radius:6px; transition:width .5s;}
+  .bar.hp i{background:linear-gradient(90deg,#ff8fa3,#ff6b81);}
+  .bar.happy i{background:linear-gradient(90deg,#ffd166,#ffb74d);}
+  .bar.energy i{background:linear-gradient(90deg,#7bd88f,#4fc08d);}
+  .val{width:30px; flex:0 0 30px; text-align:right; font-variant-numeric:tabular-nums;}
+
+  /* 底部操作按钮 */
+  .actions{
+    display:flex; gap:8px; margin-top:10px; padding-bottom:14px; flex-wrap:wrap; justify-content:center;
+  }
+  .btn{
+    border:none; border-radius:14px; padding:8px 14px; font-size:13px; cursor:pointer;
+    background:#f2f5fc; color:var(--blue-deep); transition:.15s; font-family:inherit;
+    box-shadow:0 2px 6px rgba(51,65,92,.08);
+  }
+  .btn:hover{background:var(--blue); color:#fff; transform:translateY(-1px);}
+  .btn:active{transform:translateY(0);}
+  .btn.primary{background:var(--blue); color:#fff;}
+
+  /* 时间/寄语 */
+  .foot{font-size:11px; color:var(--muted); margin-bottom:8px; text-align:center; min-height:14px;}
+</style>
+</head>
+<body>
+
+<div class="dragbar">⋮⋮ 小鲸鱼 ⋮⋮</div>
+
+<div class="whale-wrap">
+  <!-- 喷水 -->
+  <div class="spout" id="spout">
+    <span class="drop" style="left:-4px; top:0; width:8px;height:8px;"></span>
+    <span class="drop" style="left:2px; top:-2px; width:9px;height:9px; animation-delay:.08s;"></span>
+    <span class="drop" style="left:-8px; top:6px; width:7px;height:7px; animation-delay:.16s;"></span>
+  </div>
+
+  <!-- 鲸鱼 SVG -->
+  <svg class="whale" id="whale" viewBox="0 0 200 200" width="200" height="200">
+    <defs>
+      <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#6b95ff"/>
+        <stop offset="1" stop-color="#4f7df9"/>
+      </linearGradient>
+      <linearGradient id="bellyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/>
+        <stop offset="1" stop-color="#e6efff"/>
+      </linearGradient>
+      <radialGradient id="cheekGrad">
+        <stop offset="0" stop-color="#ffb7c5" stop-opacity=".9"/>
+        <stop offset="1" stop-color="#ffb7c5" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <!-- 尾巴 -->
+    <path d="M12 104 Q-6 84 -18 74 Q-8 96 2 104 Q-8 112 -18 134 Q-6 124 12 104 Z" fill="#3b66d6"/>
+
+    <!-- 身体 -->
+    <ellipse cx="104" cy="112" rx="82" ry="66" fill="url(#bodyGrad)"/>
+    <!-- 头顶高光 -->
+    <ellipse cx="88" cy="62" rx="38" ry="20" fill="#ffffff" opacity=".18"/>
+
+    <!-- 肚皮 -->
+    <ellipse cx="104" cy="136" rx="56" ry="36" fill="url(#bellyGrad)"/>
+
+    <!-- 肚皮纹路 -->
+    <path d="M72 136 q8 -8 16 0 q8 8 16 0 q8 -8 16 0" stroke="#dbe7ff" stroke-width="2" fill="none"/>
+
+    <!-- 鱼鳍 -->
+    <path d="M120 116 Q148 104 150 124 Q136 130 120 126 Z" fill="#3b66d6"/>
+
+    <!-- 眼睛 -->
+    <circle cx="82" cy="100" r="9" fill="#1f2a44"/>
+    <circle cx="82" cy="97" r="3.2" fill="#fff"/>
+    <!-- 左眼闭眼 -->
+    <g id="eye-sleep" style="display:none;">
+      <path d="M73 100 q9 7 18 0" stroke="#1f2a44" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- 右眼 -->
+    <circle cx="118" cy="100" r="9" fill="#1f2a44"/>
+    <circle cx="118" cy="97" r="3.2" fill="#fff"/>
+
+    <!-- 腮红 -->
+    <ellipse cx="70" cy="116" rx="12" ry="8" fill="url(#cheekGrad)"/>
+    <ellipse cx="138" cy="116" rx="12" ry="8" fill="url(#cheekGrad)"/>
+
+    <!-- 嘴巴 -->
+    <path id="mouth" d="M100 110 q8 10 0 14" stroke="#1f2a44" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+
+    <!-- 喷水孔 -->
+    <path d="M96 46 q4 -6 8 0" stroke="#3b66d6" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+
+    <!-- 头顶喷出的小爱心 -->
+    <text id="heart" x="100" y="30" font-size="20" text-anchor="middle" style="opacity:0;">💙</text>
+  </svg>
+
+  <!-- 气泡 -->
+  <div class="bubble" id="bubble">你好呀！</div>
+</div>
+
+<div class="stats">
+  <div class="stat-row"><span class="lab">❤️</span><div class="bar hp"><i id="hp-bar" style="width:90%"></i></div><span class="val" id="hp-val">90</span></div>
+  <div class="stat-row"><span class="lab">😊</span><div class="bar happy"><i id="happy-bar" style="width:70%"></i></div><span class="val" id="happy-val">70</span></div>
+  <div class="stat-row"><span class="lab">⚡</span><div class="bar energy"><i id="energy-bar" style="width:80%"></i></div><span class="val" id="energy-val">80</span></div>
+</div>
+
+<div class="actions">
+  <button class="btn primary" onclick="feed()">🍤 喂食</button>
+  <button class="btn" onclick="play()">🫧 玩耍</button>
+  <button class="btn" onclick="pet()">👋 摸摸</button>
+  <button class="btn" onclick="sleepToggle()">💤 睡觉</button>
+</div>
+
+<div class="foot" id="foot">点一下小鲸鱼，它会回应你</div>
+
+<script src="pet.js"></script>
+</body>
+</html>
